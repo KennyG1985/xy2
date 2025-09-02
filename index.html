@@ -154,11 +154,10 @@
       const nowMinutes = String(now.getMinutes()).padStart(2,'0');
       const nowSeconds = String(now.getSeconds()).padStart(2,'0');
 
+      // Nästa arbetsdag 05:30
       let nextWorkday = new Date(now);
-      if (now.getHours() > 5 || (now.getHours() === 5 && now.getMinutes() >= 30)) {
-        nextWorkday.setDate(nextWorkday.getDate() + 1);
-      }
       nextWorkday.setHours(5,30,0,0);
+      if (now >= nextWorkday) nextWorkday.setDate(nextWorkday.getDate() + 1);
       while (!isValidWorkday(nextWorkday)) {
         nextWorkday.setDate(nextWorkday.getDate() + 1);
         nextWorkday.setHours(5,30,0,0);
@@ -188,16 +187,16 @@
         const next = getNextWorkdayStart(now);
         const msUntilNext = next - now;
         setTimeout(() => {
-          displayLetter(true); // flip-animation exakt vid 05:30
+          displayLetter(true); // flip exakt vid 05:30
           scheduleLetterUpdate();
         }, msUntilNext);
       });
     }
 
-    // Extra säkerhetskontroll varje minut för att hantera inaktiva flikar
+    // Säkerhetskontroll varje minut
     setInterval(() => {
       displayLetter(true);
-    }, 60000); // 60000 ms = 1 minut
+    }, 60000);
 
     // Init
     displayLetter();               // direkt på laddning
