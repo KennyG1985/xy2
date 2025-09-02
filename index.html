@@ -25,7 +25,14 @@
       font-weight: bold;
       margin-top: 0.5rem;
     }
-    .letter, .date, .weekday {
+    .clock-text, .countdown-text {
+      font-size: 2rem;
+      margin-top: 1rem;
+      font-weight: bold;
+      text-align: center;
+      transition: none;
+    }
+    .letter, .date, .weekday, .clock-text, .countdown-text {
       color: #fff;
       text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
     }
@@ -35,6 +42,8 @@
   <div class="letter" id="letter">...</div>
   <div class="date" id="date">...</div>
   <div class="weekday" id="weekday">...</div>
+  <div class="clock-text" id="clock-text"></div>
+  <div class="countdown-text" id="countdown-text"></div>
 
   <script>
     const startDate = new Date("2025-01-02");
@@ -139,6 +148,32 @@
         : "linear-gradient(135deg, #27F584, #008040)";
     }
 
+    async function updateClockAndCountdown() {
+      const now = await getSwedishTime();
+      const nowHours = String(now.getHours()).padStart(2,'0');
+      const nowMinutes = String(now.getMinutes()).padStart(2,'0');
+      const nowSeconds = String(now.getSeconds()).padStart(2,'0');
+
+      // Nästa arbetsdag 05:30
+      let nextWorkday = new Date(now);
+      nextWorkday.setHours(5,30,0,0);
+      if (now >= nextWorkday) nextWorkday.setDate(nextWorkday.getDate() + 1);
+      while (!isValidWorkday(nextWorkday)) {
+        nextWorkday.setDate(nextWorkday.getDate() + 1);
+        nextWorkday.setHours(5,30,0,0);
+      }
+
+      const diff = nextWorkday - now;
+      const hoursLeft = String(Math.floor(diff / (1000*60*60))).padStart(2,'0');
+      const minutesLeft = String(Math.floor((diff / (1000*60)) % 60)).padStart(2,'0');
+      const secondsLeft = String(Math.floor((diff / 1000) % 60)).padStart(2,'0');
+
+      document.getElementById("clock-text").textContent = 
+        `Nästa dygn börjar 05:30, klockan är nu ${nowHours}:${nowMinutes}:${nowSeconds}`;
+      document.getElementById("countdown-text").textContent = 
+        `Tid kvar till nästa arbetsdygn ${hoursLeft}:${minutesLeft}:${secondsLeft}`;
+    }
+
     function getNextWorkdayStart(now) {
       let next = new Date(now);
       next.setHours(5,30,0,0);
@@ -166,6 +201,7 @@
     // Init
     displayLetter();               // direkt på laddning
     scheduleLetterUpdate();        // flip exakt vid 05:30
+    setInterval(updateClockAndCountdown, 1000); // klocka & nedräkning
   </script>
 </body>
 </html>
