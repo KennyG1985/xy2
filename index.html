@@ -11,8 +11,7 @@
       align-items: center; 
       height: 100vh; 
       font-family: Arial, sans-serif; 
-      transition: background-color 0.5s ease;
-      background-color: #fff; /* vit startfärg */
+      transition: background 1.5s ease;
     }
     .letter { 
       font-size: 15rem;
@@ -31,9 +30,8 @@
       margin-top: 1rem;
       font-weight: bold;
       text-align: center;
-      transition: none; /* ingen fade */
+      transition: none;
     }
-    /* --- Lättläst text överallt --- */
     .letter, .date, .weekday, .clock-text, .countdown-text {
       color: #fff;
       text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
@@ -53,9 +51,8 @@
     let currentDay = null;
 
     async function fetchHolidays(year) {
-      const url = `https://api.dagsmart.se/holidays?year=${year}&weekends=false`;
       try {
-        const res = await fetch(url);
+        const res = await fetch(`https://api.dagsmart.se/holidays?year=${year}&weekends=false`);
         if (!res.ok) throw new Error("Fel vid hämtning av helgdagar");
         const data = await res.json();
         return data.map(h => h.date);
@@ -68,12 +65,11 @@
     function isValidWorkday(date) {
       const day = date.getDay();
       const str = date.toISOString().split("T")[0];
-
-      if (day === 0 || day === 6) return false; // helger
-      if (holidays.includes(str)) return false;  // helgdagar via API
-      if (date.getMonth() === 11 && date.getDate() === 24) return false; // julafton
-      if (date.getMonth() === 11 && date.getDate() === 31) return false; // nyårsafton
-      if (date.getMonth() === 5 && day === 5 && date.getDate() >= 19 && date.getDate() <= 25) return false; // midsommarafton
+      if (day === 0 || day === 6) return false;
+      if (holidays.includes(str)) return false;
+      if (date.getMonth() === 11 && date.getDate() === 24) return false;
+      if (date.getMonth() === 11 && date.getDate() === 31) return false;
+      if (date.getMonth() === 5 && day === 5 && date.getDate() >= 19 && date.getDate() <= 25) return false;
       return true;
     }
 
@@ -99,11 +95,15 @@
       }
     }
 
-    async function displayLetter() {
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    async function displayLetter(doFlip = false) {
       let today = await getSwedishTime();
       today.setHours(0,0,0,0);
 
-      if (currentDay && currentDay.getTime() === today.getTime()) return;
+      if (currentDay && currentDay.getTime() === today.getTime() && !doFlip) return;
       currentDay = today;
 
       const thisYear = today.getFullYear();
@@ -124,38 +124,36 @@
       const count = countWorkdays(startDate, refDate);
       const letter = (count % 2 === 0) ? "Y" : "X";
 
-      // Flip-animation
       const letterEl = document.getElementById("letter");
-      letterEl.style.transform = "rotateY(90deg)";
-      letterEl.style.opacity = 0;
-      setTimeout(() => {
+      if (doFlip) {
+        letterEl.style.transform = "rotateY(90deg)";
+        letterEl.style.opacity = 0;
+        setTimeout(() => {
+          letterEl.textContent = letter;
+          letterEl.style.transform = "rotateY(0deg)";
+          letterEl.style.opacity = 1;
+        }, 600);
+      } else {
         letterEl.textContent = letter;
-        letterEl.style.transform = "rotateY(0deg)";
-        letterEl.style.opacity = 1;
-      }, 600);
+      }
 
-      // Datum och veckodag
       const yyyy = refDate.getFullYear();
       const mm = String(refDate.getMonth() + 1).padStart(2, "0");
       const dd = String(refDate.getDate()).padStart(2, "0");
       document.getElementById("date").textContent = `${yyyy}-${mm}-${dd}`;
+      document.getElementById("weekday").textContent = capitalize(refDate.toLocaleDateString('sv-SE', { weekday: 'long' }));
 
-      let dayName = refDate.toLocaleDateString('sv-SE', { weekday: 'long' });
-      dayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
-      document.getElementById("weekday").textContent = dayName;
-
-      document.body.style.backgroundColor = (letter === "X") ? "#0BA2F4" : "#27F584";
+      document.body.style.background = (letter === "X") 
+        ? "linear-gradient(135deg, #0BA2F4, #004080)"
+        : "linear-gradient(135deg, #27F584, #008040)";
     }
 
     async function updateClockAndCountdown() {
       const now = await getSwedishTime();
-
-      // --- Aktuell tid ---
       const nowHours = String(now.getHours()).padStart(2,'0');
       const nowMinutes = String(now.getMinutes()).padStart(2,'0');
       const nowSeconds = String(now.getSeconds()).padStart(2,'0');
 
-      // --- Tid kvar till nästa arbetsdygn 05:30 ---
       let nextWorkday = new Date(now);
       if (now.getHours() > 5 || (now.getHours() === 5 && now.getMinutes() >= 30)) {
         nextWorkday.setDate(nextWorkday.getDate() + 1);
@@ -171,30 +169,40 @@
       const minutesLeft = String(Math.floor((diff / (1000*60)) % 60)).padStart(2,'0');
       const secondsLeft = String(Math.floor((diff / 1000) % 60)).padStart(2,'0');
 
-      // Uppdatera text
       document.getElementById("clock-text").textContent = 
         `Nästa dygn börjar 05:30, klockan är nu ${nowHours}:${nowMinutes}:${nowSeconds}`;
       document.getElementById("countdown-text").textContent = 
         `Tid kvar till nästa arbetsdygn ${hoursLeft}:${minutesLeft}:${secondsLeft}`;
     }
 
-    function scheduleNextUpdate() {
+    function getNextWorkdayStart(now) {
+      let next = new Date(now);
+      next.setHours(5,30,0,0);
+      if (now >= next) next.setDate(next.getDate() + 1);
+      while (!isValidWorkday(next)) next.setDate(next.getDate() + 1);
+      return next;
+    }
+
+    function scheduleLetterUpdate() {
       getSwedishTime().then(now => {
-        let next = new Date(now);
-        next.setHours(5,30,0,0);
-        if (now >= next) next.setDate(next.getDate() + 1);
+        const next = getNextWorkdayStart(now);
         const msUntilNext = next - now;
         setTimeout(() => {
-          displayLetter();
-          scheduleNextUpdate();
+          displayLetter(true); // flip-animation exakt vid 05:30
+          scheduleLetterUpdate();
         }, msUntilNext);
       });
     }
 
+    // Extra säkerhetskontroll varje minut för att hantera inaktiva flikar
+    setInterval(() => {
+      displayLetter(true);
+    }, 60000); // 60000 ms = 1 minut
+
     // Init
-    displayLetter();
-    scheduleNextUpdate();
-    setInterval(updateClockAndCountdown, 1000);
+    displayLetter();               // direkt på laddning
+    scheduleLetterUpdate();        // flip exakt vid 05:30
+    setInterval(updateClockAndCountdown, 1000); // klocka & nedräkning
   </script>
 </body>
 </html>
