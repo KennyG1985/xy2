@@ -100,7 +100,14 @@
     }
 
     async function displayLetter(doFlip = false) {
-      let today = await getSwedishTime();
+      let now = await getSwedishTime();
+
+      // <–– fix här: om klockan är före 05:30, räkna gårdagens arbetsdag
+      if (now.getHours() < 5 || (now.getHours() === 5 && now.getMinutes() < 30)) {
+        now.setDate(now.getDate() - 1);
+      }
+
+      let today = new Date(now);
       today.setHours(0,0,0,0);
 
       if (currentDay && currentDay.getTime() === today.getTime() && !doFlip) return;
@@ -193,9 +200,9 @@
       });
     }
 
-    // Säkerhetskontroll varje minut
+    // Säkerhetskontroll varje minut (utan flip)
     setInterval(() => {
-      displayLetter(true);
+      displayLetter(false);
     }, 60000);
 
     // Init
